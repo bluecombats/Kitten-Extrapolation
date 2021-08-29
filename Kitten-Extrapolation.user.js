@@ -1,16 +1,15 @@
 // ==UserScript==
 // @name         Kitten Extrapolation
+// @namespace	https://github.com/bluecombats/Kitten-Extrapolation/edit/main/Kitten-Extrapolation.user.js
 // @namespace    https://greasyfork.org/en/scripts/10234-kitten-extrapolation
-// @version      0.7.7
+// @version      0.1
 // @description  A script for outputting information about kitten survival (Other features may come later)
 // @author       Lily
-// @match        http://bloodrizer.ru/games/kittens/*
 // @match        http://kittensgame.com/web/*
-// @match        https://bloodrizer.ru/games/kittens/*
-// @exclude      http://bloodrizer.ru/games/kittens/wiki*
-// @exclude      https://bloodrizer.ru/games/kittens/wiki*
 // @grant        none
 // ==/UserScript==
+
+// original namespace    https://greasyfork.org/en/scripts/10234-kitten-extrapolation
 
 var KE_seasons = {
     "Spring": 1.5,

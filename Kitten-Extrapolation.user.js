@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Kitten Extrapolation
+// @name         Kitten Extrapolation JPC
 // @namespace	https://github.com/bluecombats/Kitten-Extrapolation/edit/main/Kitten-Extrapolation.user.js
 // @namespace    https://greasyfork.org/en/scripts/10234-kitten-extrapolation
 // @version      0.1

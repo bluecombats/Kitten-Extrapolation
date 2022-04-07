@@ -2,7 +2,7 @@
 // @name         Kitten Extrapolation JPC
 // @namespace	https://github.com/bluecombats/Kitten-Extrapolation/edit/main/Kitten-Extrapolation.user.js
 // @namespace    https://greasyfork.org/en/scripts/10234-kitten-extrapolation
-// @version      0.1
+// @version      20220405.001
 // @description  A script for outputting information about kitten survival (Other features may come later)
 // @author       Lily
 // @match        http://kittensgame.com/web/*
@@ -159,8 +159,8 @@ function KE_generate_food_table_line(line_name, line_tag) {
     line.append(cell);
     line.append(KE_generate_food_table_cell(line_tag+'Sp'));
     line.append(KE_generate_food_table_cell(line_tag+'Su'));
-    line.append(KE_generate_food_table_cell(line_tag+'A'));
-    line.append(KE_generate_food_table_cell(line_tag+'W'));
+    line.append(KE_generate_food_table_cell(line_tag+'Au'));
+    line.append(KE_generate_food_table_cell(line_tag+'Wi'));
     return line;
 }
 
@@ -183,6 +183,19 @@ function KE_generate_food_table() {
     }
     //create the top line of the table
     var topline = document.createElement("tr");
+    //add switch between Food and Electricity
+	var switchLabel = document.createElement("label");
+	switchLabel.setAttribute("class","switch");
+	var switchInput = document.createElement("input");
+	switchInput.setAttribute("type","checkbox");
+	var switchSpan = document.createElement("span");
+	switchSpan.setAttribute("class","slider");
+	switchLabel.append(switchInput);
+	switchLabel.append(switchSpan);
+	topline.append("Food");
+	topline.appned(switchLabel);
+	topline.append("Electricity");
+	
     topline.append(KE_generate_food_table_cell("cycle_warning"));
     topline.append(KE_generate_food_table_cell("","Food during seasons (/season)",4));
     table.append(topline);
@@ -210,235 +223,227 @@ function KE_generate_food_table() {
 }
 
 function KE_getWeatherMod(res, season, weather){
-		var mod = KE_seasons[season] ? KE_seasons[season] : 1;
+	var mod = KE_seasons[season] ? KE_seasons[season] : 1;
 
-		if (res.name != "catnip") {
-			return mod;
-		}
-
-		if (gamePage.science.getPolicy("communism").researched && season.toLowerCase() == "winter" && weather.toLowerCase() == "cold"){
-			return 0;
-		}
-
-		if (weather.toLowerCase() == "warm"){
-			mod += 0.15;
-		} else if (weather.toLowerCase() == "cold"){
-			mod += -0.15;
-		}
-		if (gamePage.challenges.getChallenge("winterIsComing").on && weather.toLowerCase() == "cold") {
-			mod *= 1 + gamePage.getLimitedDR(gamePage.getEffect("coldHarshness"),1);
-		}
-		if (season.toLowerCase() == "spring") {
-            mod *= (1 + gamePage.getLimitedDR(gamePage.getEffect("springCatnipRatio"), 2));
-        }
-
+	if (res.name != "catnip") {
 		return mod;
 	}
 
-function KE_calcResourcePerTick(resName, season, weather){
-		var res = gamePage.resPool.get(resName);
-
-		// BUILDING PerTickBase
-		var perTick = gamePage.getEffect(res.name + "PerTickBase");
-
-		// SPACE RATIO CALCULATION
-		var spaceRatio = 1 + gamePage.getEffect("spaceRatio");
-		if (gamePage.workshop.get("spaceManufacturing").researched && res.name != "uranium"){
-			var factory = gamePage.bld.get("factory");
-			spaceRatio *= (1 + factory.on * factory.effects["craftRatio"] * 0.75);
-		}
-
-		// +SPACE PerTickBase
-		var perTickBaseSpace = gamePage.getEffect(res.name + "PerTickBaseSpace") * spaceRatio;
-
-		perTick += perTickBaseSpace;
-
-		// *SEASON MODIFIERS
-		//perTick *= gamePage.calendar.getWeatherMod(res);
-        perTick *= KE_getWeatherMod(res, season, weather);
-
-		// +VILLAGE JOB PRODUCTION
-		var resMapProduction = gamePage.village.getResProduction();
-		var resProduction = resMapProduction[res.name] ? resMapProduction[res.name] : 0;
-
-		perTick += resProduction;
-
-		// +VILLAGE JOB PRODUCTION (UPGRADE EFFECTS JOBS)
-		var workshopResRatio = gamePage.getEffect(res.name + "JobRatio");
-
-		perTick += resProduction * workshopResRatio;
-
-		// +*BEFORE PRODUCTION BOOST (UPGRADE EFFECTS GLOBAL)
-		perTick *= 1 + gamePage.getEffect(res.name + "GlobalRatio");
-
-		// +*BUILDINGS AND SPACE PRODUCTION
-		perTick *= 1 + gamePage.getEffect(res.name + "Ratio");
-
-		// +*RELIGION EFFECTS
-		perTick *= 1 + gamePage.getEffect(res.name + "RatioReligion");
-
-		// +*AFTER PRODUCTION BOOST (UPGRADE EFFECTS SUPER)
-		perTick *= 1 + gamePage.getEffect(res.name + "SuperRatio");
-
-		// +*AFTER PRODUCTION REDUCTION (SPECIAL STEAMWORKS HACK FOR COAL)
-		var steamworks = gamePage.bld.get("steamworks");
-		var swEffectGlobal = steamworks.effects[res.name + "RatioGlobal"];
-		if (steamworks.on > 0 && swEffectGlobal) {
-			perTick *= 1 + swEffectGlobal;
-		}
-
-		// *PARAGON BONUS
-		var paragonProductionRatio = gamePage.prestige.getParagonProductionRatio();
-		if (resName == "catnip" && gamePage.challenges.isActive("winterIsComing")) {
-			paragonProductionRatio = 0; //winter has come
-		}
-
-		perTick *= 1 + paragonProductionRatio;
-
-		// *POLLUTION MODIFIER
-		if(res.name == "catnip"){
-			perTick *= 1 + gamePage.bld.pollutionEffects["catnipPollutionRatio"];
-		}
-
-		//ParagonSpaceProductionRatio definition 1/4
-		var paragonSpaceProductionRatio = 1 + paragonProductionRatio * 0.05;
-
-		// +BUILDING AUTOPROD
-		var perTickAutoprod = gamePage.getEffect(res.name + "PerTickAutoprod");
-		    perTickAutoprod *= paragonSpaceProductionRatio;
-			perTickAutoprod *= (1 + gamePage.getEffect("rankLeaderBonusConversion") * ((gamePage.village.leader) ? gamePage.village.leader.rank : 0));
-		perTick += perTickAutoprod;
-
-		// *MAGNETOS PRODUCTION BONUS
-		if (!res.transient && gamePage.bld.get("magneto").on > 0 && res.name != "catnip"){
-
-			steamworks = gamePage.bld.get("steamworks");
-			var swRatio = steamworks.on > 0 ? (1 + steamworks.effects["magnetoBoostRatio"] * steamworks.on) : 1;
-			if (res.name != "oil"){
-				perTick *= 1 + (gamePage.getEffect("magnetoRatio") * swRatio);
-			}
-
-			//ParagonSpaceProductionRatio definition 2/4
-			paragonSpaceProductionRatio += paragonSpaceProductionRatio * gamePage.getEffect("magnetoRatio") * swRatio; //These special cases need to die in a hole
-
-		}
-
-		// +*REACTOR PRODUCTION BONUS
-		if (!res.transient && res.name != "uranium" && res.name != "catnip"){
-			perTick *= 1 + gamePage.getEffect("productionRatio");
-
-			//ParagonSpaceProductionRatio definition 3/4
-			paragonSpaceProductionRatio += paragonSpaceProductionRatio * gamePage.getEffect("productionRatio");
-		}
-
-		// +*FAITH BONUS
-		perTick *= 1 + gamePage.religion.getSolarRevolutionRatio() * (1 + ((res.name == "wood" || res.name == "catnip")? gamePage.bld.pollutionEffects["solarRevolutionPollution"] : 0));
-
-		//+COSMIC RADIATION
-		if (!gamePage.opts.disableCMBR && res.name != "coal") {
-			perTick *= 1 + gamePage.getCMBRBonus();
-		}
-
-		//ParagonSpaceProductionRatio definition 4/4
-		paragonSpaceProductionRatio *= 1 + gamePage.religion.getSolarRevolutionRatio();
-
-		// +AUTOMATED PRODUCTION BUILDING
-		perTick += gamePage.getEffect(res.name + "PerTickProd");
-
-		// +AUTOMATED PRODUCTION SPACE (FULL BONUS)
-		perTick += (gamePage.getEffect(res.name + "PerTickAutoprodSpace") * spaceRatio) * (1 + (paragonSpaceProductionRatio - 1) * gamePage.getEffect("prodTransferBonus"));
-		// +AUTOMATED PRODUCTION SPACE (NOT FULL BONUS)
-		perTick += gamePage.getEffect(res.name + "PerTickSpace") * spaceRatio;
-
-
-		//CYCLE EFFECTS
-		// Already added because it's space building improvements.
-
-		//CYCLE FESTIVAL EFFECTS
-
-		var effects = {};
-		effects[resName] = perTick;
-		gamePage.calendar.cycleEffectsFestival(effects);
-		perTick = effects[resName];
-
-		// +BUILDING AND SPACE PerTick
-		perTick += gamePage.getEffect(res.name + "PerTick") * (1+ gamePage.getEffect(res.name + "PerTickRatio"));
-
-		// -EARTH CONSUMPTION
-		var resMapConsumption = gamePage.village.getResConsumption();
-		var resConsumption = resMapConsumption[res.name] || 0;
-		resConsumption *= 1 + gamePage.getEffect(res.name + "DemandRatio");
-		if (res.name == "catnip" && gamePage.village.sim.kittens.length > 0 && gamePage.village.happiness > 1) {
-			var hapinnessConsumption = Math.max(gamePage.village.happiness * (1 + gamePage.getEffect("hapinnessConsumptionRatio")) - 1, 0);
-			if (gamePage.challenges.isActive("anarchy")) {
-				resConsumption += resConsumption * hapinnessConsumption * (1 + gamePage.getEffect(res.name + "DemandWorkerRatioGlobal"));
-			} else {
-				resConsumption += resConsumption * hapinnessConsumption * (1 + gamePage.getEffect(res.name + "DemandWorkerRatioGlobal")) * (1 - gamePage.village.getFreeKittens() / gamePage.village.sim.kittens.length);
-			}
-		}
-		// +POLICY EFFECTS
-
-		//necrocracy global effect
-		perTick *= (1 + (gamePage.resPool.get("sorrow").value * gamePage.getEffect("blsProductionBonus")));
-		//policy ratio effects
-		perTick *= (1 + gamePage.getEffect(res.name + "PolicyRatio"));
-
-		perTick += resConsumption;
-		if (isNaN(perTick)){
-			return 0;
-		}
-
-		return perTick;
+	if (gamePage.science.getPolicy("communism").researched && season.toLowerCase() == "winter" && weather.toLowerCase() == "cold"){
+		return 0;
 	}
 
+	if (weather.toLowerCase() == "warm"){
+		mod += 0.15;
+	} else if (weather.toLowerCase() == "cold"){
+		mod += -0.15;
+	}
+	if (gamePage.challenges.getChallenge("winterIsComing").on && weather.toLowerCase() == "cold") {
+		mod *= 1 + gamePage.getLimitedDR(gamePage.getEffect("coldHarshness"),1);
+	}
+	if (season.toLowerCase() == "spring") {
+            mod *= (1 + gamePage.getLimitedDR(gamePage.getEffect("springCatnipRatio"), 2));
+        }
+
+	return mod;
+}
+
+function KE_calcResourcePerTick(resName, season, weather){
+	var res = gamePage.resPool.get(resName);
+
+	// BUILDING PerTickBase
+	var perTick = gamePage.getEffect(res.name + "PerTickBase");
+
+	// SPACE RATIO CALCULATION
+	var spaceRatio = 1 + gamePage.getEffect("spaceRatio");
+	if (gamePage.workshop.get("spaceManufacturing").researched && res.name != "uranium"){
+		var factory = gamePage.bld.get("factory");
+		spaceRatio *= (1 + factory.on * factory.effects["craftRatio"] * 0.75);
+	}
+
+	// +SPACE PerTickBase
+	var perTickBaseSpace = gamePage.getEffect(res.name + "PerTickBaseSpace") * spaceRatio;
+	perTick += perTickBaseSpace;
+	// *SEASON MODIFIERS
+	//perTick *= gamePage.calendar.getWeatherMod(res);
+        perTick *= KE_getWeatherMod(res, season, weather);
+
+	// +VILLAGE JOB PRODUCTION
+	var resMapProduction = gamePage.village.getResProduction();
+	var resProduction = resMapProduction[res.name] ? resMapProduction[res.name] : 0;
+
+	perTick += resProduction;
+
+	// +VILLAGE JOB PRODUCTION (UPGRADE EFFECTS JOBS)
+	var workshopResRatio = gamePage.getEffect(res.name + "JobRatio");
+
+	perTick += resProduction * workshopResRatio;
+
+	// +*BEFORE PRODUCTION BOOST (UPGRADE EFFECTS GLOBAL)
+	perTick *= 1 + gamePage.getEffect(res.name + "GlobalRatio");
+
+	// +*BUILDINGS AND SPACE PRODUCTION
+	perTick *= 1 + gamePage.getEffect(res.name + "Ratio");
+
+	// +*RELIGION EFFECTS
+	perTick *= 1 + gamePage.getEffect(res.name + "RatioReligion");
+
+	// +*AFTER PRODUCTION BOOST (UPGRADE EFFECTS SUPER)
+	perTick *= 1 + gamePage.getEffect(res.name + "SuperRatio");
+
+	// +*AFTER PRODUCTION REDUCTION (SPECIAL STEAMWORKS HACK FOR COAL)
+	var steamworks = gamePage.bld.get("steamworks");
+	var swEffectGlobal = steamworks.effects[res.name + "RatioGlobal"];
+	if (steamworks.on > 0 && swEffectGlobal) {
+		perTick *= 1 + swEffectGlobal;
+	}
+
+	// *PARAGON BONUS
+	var paragonProductionRatio = gamePage.prestige.getParagonProductionRatio();
+	if (resName == "catnip" && gamePage.challenges.isActive("winterIsComing")) {
+		paragonProductionRatio = 0; //winter has come
+	}
+
+	perTick *= 1 + paragonProductionRatio;
+
+	// *POLLUTION MODIFIER
+	if(res.name == "catnip"){
+		perTick *= 1 + gamePage.bld.pollutionEffects["catnipPollutionRatio"];
+	}
+		//ParagonSpaceProductionRatio definition 1/4
+	var paragonSpaceProductionRatio = 1 + paragonProductionRatio * 0.05;
+		// +BUILDING AUTOPROD
+	var perTickAutoprod = gamePage.getEffect(res.name + "PerTickAutoprod");
+	    perTickAutoprod *= paragonSpaceProductionRatio;
+	    perTickAutoprod *= (1 + gamePage.getEffect("rankLeaderBonusConversion") * ((gamePage.village.leader) ? gamePage.village.leader.rank : 0));
+	perTick += perTickAutoprod;
+
+	// *MAGNETOS PRODUCTION BONUS
+	if (!res.transient && gamePage.bld.get("magneto").on > 0 && res.name != "catnip"){
+
+		steamworks = gamePage.bld.get("steamworks");
+		var swRatio = steamworks.on > 0 ? (1 + steamworks.effects["magnetoBoostRatio"] * steamworks.on) : 1;
+		if (res.name != "oil"){
+			perTick *= 1 + (gamePage.getEffect("magnetoRatio") * swRatio);
+		}
+
+		//ParagonSpaceProductionRatio definition 2/4
+		paragonSpaceProductionRatio += paragonSpaceProductionRatio * gamePage.getEffect("magnetoRatio") * swRatio; //These special cases need to die in a hole
+
+	}
+	// +*REACTOR PRODUCTION BONUS
+	if (!res.transient && res.name != "uranium" && res.name != "catnip"){
+		perTick *= 1 + gamePage.getEffect("productionRatio");
+
+		//ParagonSpaceProductionRatio definition 3/4
+		paragonSpaceProductionRatio += paragonSpaceProductionRatio * gamePage.getEffect("productionRatio");
+	}
+
+	// +*FAITH BONUS
+	perTick *= 1 + gamePage.religion.getSolarRevolutionRatio() * (1 + ((res.name == "wood" || res.name == "catnip")? gamePage.bld.pollutionEffects["solarRevolutionPollution"] : 0));
+
+	//+COSMIC RADIATION
+	if (!gamePage.opts.disableCMBR && res.name != "coal") {
+		perTick *= 1 + gamePage.getCMBRBonus();
+	}
+
+	//ParagonSpaceProductionRatio definition 4/4
+	paragonSpaceProductionRatio *= 1 + gamePage.religion.getSolarRevolutionRatio();
+
+	// +AUTOMATED PRODUCTION BUILDING
+	perTick += gamePage.getEffect(res.name + "PerTickProd");
+
+	// +AUTOMATED PRODUCTION SPACE (FULL BONUS)
+	perTick += (gamePage.getEffect(res.name + "PerTickAutoprodSpace") * spaceRatio) * (1 + (paragonSpaceProductionRatio - 1) * gamePage.getEffect("prodTransferBonus"));
+	// +AUTOMATED PRODUCTION SPACE (NOT FULL BONUS)
+	perTick += gamePage.getEffect(res.name + "PerTickSpace") * spaceRatio;
+
+
+	//CYCLE EFFECTS
+	// Already added because it's space building improvements.
+
+	//CYCLE FESTIVAL EFFECTS
+
+	var effects = {};
+	effects[resName] = perTick;
+	gamePage.calendar.cycleEffectsFestival(effects);
+	perTick = effects[resName];
+
+	// +BUILDING AND SPACE PerTick
+	perTick += gamePage.getEffect(res.name + "PerTick") * (1+ gamePage.getEffect(res.name + "PerTickRatio"));
+
+	// -EARTH CONSUMPTION
+	var resMapConsumption = gamePage.village.getResConsumption();
+	var resConsumption = resMapConsumption[res.name] || 0;
+	resConsumption *= 1 + gamePage.getEffect(res.name + "DemandRatio");
+	if (res.name == "catnip" && gamePage.village.sim.kittens.length > 0 && gamePage.village.happiness > 1) {
+		var hapinnessConsumption = Math.max(gamePage.village.happiness * (1 + gamePage.getEffect("hapinnessConsumptionRatio")) - 1, 0);
+		if (gamePage.challenges.isActive("anarchy")) {
+			resConsumption += resConsumption * hapinnessConsumption * (1 + gamePage.getEffect(res.name + "DemandWorkerRatioGlobal"));
+		} else {
+			resConsumption += resConsumption * hapinnessConsumption * (1 + gamePage.getEffect(res.name + "DemandWorkerRatioGlobal")) * (1 - gamePage.village.getFreeKittens() / gamePage.village.sim.kittens.length);
+		}
+	}
+	// +POLICY EFFECTS
+
+	//necrocracy global effect
+	perTick *= (1 + (gamePage.resPool.get("sorrow").value * gamePage.getEffect("blsProductionBonus")));
+	//policy ratio effects
+	perTick *= (1 + gamePage.getEffect(res.name + "PolicyRatio"));
+
+	perTick += resConsumption;
+	if (isNaN(perTick)){
+		return 0;
+	}
+
+	return perTick;
+}
+
 //Calculates the reasource production for a season other then the current one.
-function KE_calcResourcePerTick_NCW(resName, season, weather)
-{
-    if(resName == "catnip"){
-        //Get data for the current weather
-        var realWeatherMod = gamePage.calendar.getWeatherMod(resName);
-        //invert it
-        var realWeatherModInverse = 0-realWeatherMod;
-        //get the effective season+weather
-        //console.log("season: "+season+":"+KE_seasons[season]+" /t weather: "+weather+":"+KE_weathers[weather]);
-        var mockSeasonWeatherMod = KE_seasons[season]+KE_weathers[weather];
-        //console.log(realWeatherMod+" "+mockSeasonWeatherMod);
-        //Apply the inveser of the real weather to it to counter that it is going to be applied in the function
-        mockSeasonWeatherMod += realWeatherModInverse;
-        //console.log(season+" "+weather+" "+gamePage.calcResourcePerTick(resName,{"modifiers" : {"catnip" : mockSeasonWeatherMod}})+" "+gamePage.getResourcePerTickConvertion(resName));
-        return (KE_calcResourcePerTick(resName, season, weather)+gamePage.getResourcePerTickConvertion(resName));
-    } else{
-        return gamePage.calcResourcePerTick(resName)+gamePage.getResourcePerTickConvertion(resName);
-    }
+function KE_calcResourcePerTick_NCW(resName, season, weather){
+	if(resName == "catnip"){
+        	//Get data for the current weather
+        	var realWeatherMod = gamePage.calendar.getWeatherMod(resName);
+        	//invert it
+        	var realWeatherModInverse = 0-realWeatherMod;
+        	//get the effective season+weather
+        	//console.log("season: "+season+":"+KE_seasons[season]+" /t weather: "+weather+":"+KE_weathers[weather]);
+        	var mockSeasonWeatherMod = KE_seasons[season]+KE_weathers[weather];
+        	//console.log(realWeatherMod+" "+mockSeasonWeatherMod);
+        	//Apply the inveser of the real weather to it to counter that it is going to be applied in the function
+        	mockSeasonWeatherMod += realWeatherModInverse;
+        	//console.log(season+" "+weather+" "+gamePage.calcResourcePerTick(resName,{"modifiers" : {"catnip" : mockSeasonWeatherMod}})+" "+gamePage.getResourcePerTickConvertion(resName));
+        	return (KE_calcResourcePerTick(resName, season, weather)+gamePage.getResourcePerTickConvertion(resName));
+    	} else{
+        	return gamePage.calcResourcePerTick(resName)+gamePage.getResourcePerTickConvertion(resName);
+    	}
 }
 
-function KE_update_food_table_cell(lable, season, weather)
-{
-    var element_to_update = document.getElementById(lable);
-    //Clear labeled element
-    element_to_update.innerHTML = ""
-    var updated_text = document.createElement("font");
-    //Bold the current season/weather combo
-    var gamePageWeather = gamePage.calendar.weather;
-    var gamePageSeason = gamePage.calendar.season;
-    var reverseLookup = KE_seasons_reverse_Lookup[gamePageSeason];
-    //console.log(gamePageWeather+" "+gamePageSeason+" "+reverseLookup);
-    if(season == KE_seasons_reverse_Lookup[gamePage.calendar.season] && ((weather=="Norm" && gamePage.calendar.weather == null) || weather.toLowerCase() == gamePage.calendar.weather)){
-        updated_text.setAttribute("class","msg type_date");
-        updated_text.style.fontWeight = "bold";
-        updated_text.style.borderBottomWidth = "0px";
-        updated_text.style.fontSize = "14px";
-    }
-    //Get updated value
-    //console.log(KE_calcResourcePerTick_NCW("catnip",season,weather));
-    updated_text.append(gamePage.getDisplayValueExt(KE_calcResourcePerTick_NCW("catnip",season,weather)*1000,true));
-    //Close out font
-    element_to_update.append(updated_text);
-    return true;
+function KE_update_food_table_cell(lable, season, weather){
+	var element_to_update = document.getElementById(lable);
+	//Clear labeled element
+	element_to_update.innerHTML = ""
+	var updated_text = document.createElement("font");
+	//Bold the current season/weather combo
+	var gamePageWeather = gamePage.calendar.weather;
+	var gamePageSeason = gamePage.calendar.season;
+	var reverseLookup = KE_seasons_reverse_Lookup[gamePageSeason];
+	//console.log(gamePageWeather+" "+gamePageSeason+" "+reverseLookup);
+	if(season == KE_seasons_reverse_Lookup[gamePage.calendar.season] && ((weather=="Norm" && gamePage.calendar.weather == null) || weather.toLowerCase() == gamePage.calendar.weather)){
+		updated_text.setAttribute("class","msg type_date");
+		updated_text.style.fontWeight = "bold";
+		updated_text.style.borderBottomWidth = "0px";
+		updated_text.style.fontSize = "14px";
+	}
+	//Get updated value
+	//console.log(KE_calcResourcePerTick_NCW("catnip",season,weather));
+	updated_text.append(gamePage.getDisplayValueExt(KE_calcResourcePerTick_NCW("catnip",season,weather)*1000,true));
+	//Close out font
+	element_to_update.append(updated_text);
+	return true;
 }
 
-function KE_update_trade_screen()
-{
+function KE_update_trade_screen(){
 
     ///////////////////////////////////////////////////
     //Adding trade calculations, purely experimental //
@@ -573,27 +578,10 @@ function KE_update(){
     var label;
     for(var i=0;i<temp.length;i++){
         for(var j=0;j<season.length;j++){
-            label=temp[i][0]+"S";
-            if(season[j] ==="Spring"||season[j] ==="Summer"){
-                label+=season[j].substring(0,2);
-            }else{
-                label+=season[j][0]
-            }
+            label=temp[i][0]+"S"+=season[j].substring(0,2);
             KE_update_food_table_cell(label,season[j],temp[i]);
         }
     }
-    /*KE_update_food_table_cell("WSSp", "Spring", "Warm");
-    KE_update_food_table_cell("WSSu", "Summer", "Warm");
-    KE_update_food_table_cell("WSA", "Autumn", "Warm");
-    KE_update_food_table_cell("WSW", "Winter", "Warm");
-    KE_update_food_table_cell("NSSp", "Spring", "Norm");
-    KE_update_food_table_cell("NSSu", "Summer", "Norm");
-    KE_update_food_table_cell("NSA", "Autumn", "Norm");
-    KE_update_food_table_cell("NSW", "Winter", "Norm");
-    KE_update_food_table_cell("CSSp", "Spring", "Cold");
-    KE_update_food_table_cell("CSSu", "Summer", "Cold");
-    KE_update_food_table_cell("CSA", "Autumn", "Cold");
-    KE_update_food_table_cell("CSW", "Winter", "Cold");*/
 
     //Yearly production
     var str = "Yearly food balance (avg): " +
@@ -631,8 +619,10 @@ function KE_initiate_script() {
     data_out.style.verticalAlign = 'bottom';
     data_out.innerHTML = "";
     data_out.append(KE_generate_food_table());
+	
     var right_col = document.getElementById('rightColumn')
     right_col.style.width = '360px';
+	
     var before_child = document.getElementsByClassName("right-tab-header")[0];
     right_col.insertBefore(data_out, before_child);
     setInterval(KE_update, 1000);
@@ -657,10 +647,8 @@ KE_initiate();
 
 //Function for trimming strings.
 //Credit: David Andres (https://stackoverflow.com/questions/1418050/string-strip-for-javascript)
-if(typeof(String.prototype.trim) === "undefined")
-{
-    String.prototype.trim = function()
-    {
+if(typeof(String.prototype.trim) === "undefined"){
+    String.prototype.trim = function(){
         return String(this).replace(/^\s+|\s+$/g, '');
     };
 }

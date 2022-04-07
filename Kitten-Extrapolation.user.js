@@ -2,7 +2,7 @@
 // @name         Kitten Extrapolation JPC
 // @namespace	https://github.com/bluecombats/Kitten-Extrapolation/edit/main/Kitten-Extrapolation.user.js
 // @namespace    https://greasyfork.org/en/scripts/10234-kitten-extrapolation
-// @version      20220405.001
+// @version      20220405.002
 // @description  A script for outputting information about kitten survival (Other features may come later)
 // @author       Lily
 // @match        http://kittensgame.com/web/*
@@ -429,7 +429,8 @@ function KE_update_food_table_cell(lable, season, weather){
 	var gamePageSeason = gamePage.calendar.season;
 	var reverseLookup = KE_seasons_reverse_Lookup[gamePageSeason];
 	//console.log(gamePageWeather+" "+gamePageSeason+" "+reverseLookup);
-	if(season == KE_seasons_reverse_Lookup[gamePage.calendar.season] && ((weather=="Norm" && gamePage.calendar.weather == null) || weather.toLowerCase() == gamePage.calendar.weather)){
+	if(season == KE_seasons_reverse_Lookup[gamePage.calendar.season] && 
+	   ((weather=="Norm" && gamePage.calendar.weather == null) || weather.toLowerCase() == gamePage.calendar.weather)){
 		updated_text.setAttribute("class","msg type_date");
 		updated_text.style.fontWeight = "bold";
 		updated_text.style.borderBottomWidth = "0px";
@@ -578,7 +579,7 @@ function KE_update(){
     var label;
     for(var i=0;i<temp.length;i++){
         for(var j=0;j<season.length;j++){
-            label=temp[i][0]+"S"+=season[j].substring(0,2);
+            label=temp[i][0]+"S"+season[j].substring(0,2);
             KE_update_food_table_cell(label,season[j],temp[i]);
         }
     }
@@ -590,7 +591,7 @@ function KE_update(){
                                     (KE_calcResourcePerTick_NCW("catnip", "Autumn", "Norm")*1000) +
                                     (KE_calcResourcePerTick_NCW("catnip", "Winter", "Norm")*1000), true);
 
-    document.getElementById('yearly_food_produced').innerHTML = "Yearly food balance (avg): " + gamePage.getDisplayValueExt((KE_calcResourcePerTick_NCW("catnip", "Spring", "Norm")*1000) + (KE_calcResourcePerTick_NCW("catnip", "Summer", "Norm")*1000) + (KE_calcResourcePerTick_NCW("catnip", "Autumn", "Norm")*1000) + (KE_calcResourcePerTick_NCW("catnip", "Winter", "Norm")*1000), true);
+    document.getElementById('yearly_food_produced').innerHTML = str;
 
     var cycle = gamePage.calendar.cycles[gamePage.calendar.cycle];
     var element_to_update;

@@ -2,7 +2,7 @@
 // @name         Kitten Extrapolation JPC
 // @namespace	https://github.com/bluecombats/Kitten-Extrapolation/edit/main/Kitten-Extrapolation.user.js
 // @namespace    https://greasyfork.org/en/scripts/10234-kitten-extrapolation
-// @version      20220405.002
+// @version      20220405.003
 // @description  A script for outputting information about kitten survival (Other features may come later)
 // @author       Lily
 // @match        http://kittensgame.com/web/*
@@ -193,7 +193,7 @@ function KE_generate_food_table() {
 	switchLabel.append(switchInput);
 	switchLabel.append(switchSpan);
 	topline.append("Food");
-	topline.appned(switchLabel);
+	topline.append(switchLabel);
 	topline.append("Electricity");
 	
     topline.append(KE_generate_food_table_cell("cycle_warning"));
